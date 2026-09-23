@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
@@ -30,6 +31,30 @@ func (r *ScreeningRepository) Search(
 		From("screenings")
 
 	// TODO(задание 3): добавьте заполненные фильтры, сортировку и Limit.
+	if filter.Search != "" {
+		escapedSearch := strings.NewReplacer(
+			`\`, `\\`,
+			`%`, `\%`,
+			`_`, `\_`,
+		).Replace(filter.Search)
+
+		query = query.Where(
+			`film_title ILIKE ? ESCAPE E'\\'`,
+			"%"+escapedSearch+"%",
+		)
+	}
+
+	if filter.MinSeats != nil {
+		query = query.Where("available_seats>= ?", *filter.MinSeats)
+	}
+
+	if filter.StartsFrom != nil {
+		query = query.Where("starts_at >= ?", *filter.StartsFrom)
+	}
+
+	query = query.
+	OrderBy("starts_at", "id").
+	Limit(filter.Limit)
 
 	querySQL, args, err := query.ToSql()
 	if err != nil {

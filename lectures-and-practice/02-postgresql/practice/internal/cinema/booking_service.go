@@ -42,5 +42,24 @@ func (s *BookingService) Book(
 	userID int64,
 ) (Booking, error) {
 	// TODO(задание 4): выполните TakeSeat и Create в одной транзакции.
-	return Booking{}, ErrNotImplemented
+	var booking Booking
+	err := s.txManager.WithinTransaction(ctx, func(ctx context.Context, tx pgx.Tx) error {
+
+		err := s.screeningRepository.TakeSeat(ctx, tx, screeningID)
+		if err != nil {
+			return ErrNoSeats
+		}
+
+		booking, err = s.bookingRepository.Create(ctx, tx, screeningID, userID)
+		if err != nil {
+			return ErrAlreadyBooked
+		}
+		return nil
+	})
+
+	if err != nil {
+		return Booking{}, err
+	}
+
+	return booking, err
 }
